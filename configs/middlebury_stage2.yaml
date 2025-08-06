@@ -1,0 +1,27 @@
+BACKBONE:
+  MODEL_TYPE: "convnext"
+  OUT_CHANNELS: 128
+  DROP_PATH: 0.3
+OMNIDEPTH:
+  ENCODER_VIT: "vitl"
+  RECURRENT_LOSS_WEIGHT: 1.0
+  RECURRENT_LOSS_GAMMA: 0.8
+DPN:
+  NUM_PROPOSALS: 2
+NMP:
+  REFINE_WINDOW_SIZE: 4
+DATASETS:
+  TRAIN: ("falling_things", "carla_highres", "crestereo", "in_stereo2k", "middlebury_2014", "middlebury_2021", "middlebury_H", "middlebury_F")
+  MUL: (5, 50, 1, 50, 200, 200, 200, 200)
+  CROP_SIZE: [512, 768]
+  TEST: ("kitti_2012_trainval", "kitti_2015_trainval", "eth3d", "middlebury_Q")
+TEST:
+  EVAL_THRESH: (['3.0'], ['3.0'], ['1.0'], ['2.0'])
+  EVAL_MAX_DISP: [null, null, null, 1000]
+  EVAL_ONLY_VALID: (True, True, True, False)
+  EVAL_PROP: (True, True, True, True)
+SOLVER:
+  IMS_PER_BATCH: 8
+  MAX_ITER: 100000
+  CHECKPOINT_PERIOD: 200000
+  MAX_DISP: 320
