@@ -1,6 +1,5 @@
 import torch
 from torch import nn
-import torch.nn.functional as F
 
 from .stereo import build_criterion as build_stereo_criterion
 
@@ -56,14 +55,14 @@ def sequence_affine_invariant_loss(predictions, target, mask, loss_gamma=0.9):
     return loss
         
         
-class OmniCriterion(nn.Module):
+class BridgeCriterion(nn.Module):
     def __init__(self, cfg):
         super().__init__()
         
         self.stereo_criterion = build_stereo_criterion(cfg)
-        self.loss_gamma = cfg.OMNIDEPTH.RECURRENT_LOSS_GAMMA
+        self.loss_gamma = cfg.BRIDGEDEPTH.RECURRENT_LOSS_GAMMA
         self.weight_dict = dict(self.stereo_criterion.weight_dict)
-        self.weight_dict.update({'loss_recurrent': cfg.OMNIDEPTH.RECURRENT_LOSS_WEIGHT})
+        self.weight_dict.update({'loss_recurrent': cfg.BRIDGEDEPTH.RECURRENT_LOSS_WEIGHT})
         
     def forward(self, outputs, targets, log):
         loss_dict = self.stereo_criterion(outputs, targets, log)
@@ -80,4 +79,4 @@ class OmniCriterion(nn.Module):
         
         
 def build_criterion(cfg):
-    return OmniCriterion(cfg)
+    return BridgeCriterion(cfg)

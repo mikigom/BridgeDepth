@@ -9,10 +9,7 @@ import torch.utils
 import torch.nn.functional as F
 from typing import Iterable, Optional, TypeVar, List, Tuple, Union
 
-from omnidepth.utils import frame_utils
-from omnidepth.utils import dist_utils as comm
-from omnidepth.utils import misc
-from omnidepth.utils import evaluation
+from bridgedepth.utils import frame_utils, misc, evaluation, dist_utils as comm
 from .transforms import FlowAugmentor, SparseFlowAugmentor
 from .base.easy_dataset import EasyDataset
 

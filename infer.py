@@ -5,12 +5,11 @@ import time
 import torch
 import cv2
 
-from omnidepth.config import get_cfg
-from omnidepth.utils.logger import setup_logger
-from omnidepth.data import datasets
-from omnidepth.utils import frame_utils
-from omnidepth.utils import visualization
-from omnidepth.omnidepth import OmniDepth
+from bridgedepth.config import get_cfg
+from bridgedepth.utils.logger import setup_logger
+from bridgedepth.data import datasets
+from bridgedepth.utils import frame_utils, visualization
+from bridgedepth.bridgedepth import BridgeDepth
 
 
 def setup_cfg(args):
@@ -192,7 +191,7 @@ def create_eth3d_submission(model, output_path):
 
 
 @torch.no_grad()
-def create_middlebury_submission(model, output_path, split='F', method_name='OmniDepth'):
+def create_middlebury_submission(model, output_path, split='F', method_name='BridgeDepth'):
     training_mode = model.training
     model.eval()
     test_dataset = datasets.Middlebury(split=split, image_set='test')
@@ -249,13 +248,13 @@ def _find_output_path(root):
 if __name__ == "__main__":
     mp.set_start_method("spawn", force=True)
     args = get_parser().parse_args()
-    setup_logger(name="omnidepth")
+    setup_logger(name="bridgedepth")
     logger = setup_logger()
     logger.info("Arguments: " + str(args))
 
     cfg = setup_cfg(args)
 
-    model = OmniDepth(cfg)
+    model = BridgeDepth(cfg)
     model = model.to(torch.device("cuda"))
     checkpoint = torch.load(cfg.SOLVER.RESUME, map_location="cpu")
     weights = checkpoint['model'] if 'model' in checkpoint else checkpoint

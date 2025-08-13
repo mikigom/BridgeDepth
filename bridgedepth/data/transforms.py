@@ -247,8 +247,6 @@ class SparseFlowAugmentor:
                 img1 = img1[:, ::-1]
                 img2 = img2[:, ::-1]
                 flow = flow[:, ::-1] * [-1.0, 1.0]
-                occlusion_map = occlusion_map[:, ::-1]
-                occlusion_map_2 = occlusion_map_2[:, ::-1]
                 valid = valid[:, ::-1]
 
             # TODO
@@ -262,8 +260,6 @@ class SparseFlowAugmentor:
                 img1 = img1[::-1, :]
                 img2 = img2[::-1, :]
                 flow = flow[::-1, :] * [1.0, -1.0]
-                occlusion_map = occlusion_map[::-1, :]
-                occlusion_map_2 = occlusion_map_2[::-1, :]
                 valid = valid[::-1, :]
         
         margin_y = 20

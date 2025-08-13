@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from omnidepth.config import configurable
+from bridgedepth.config import configurable
 from .NMP import Head, Propagation, PropagationLayer
 from .submodule import init_weights
 
