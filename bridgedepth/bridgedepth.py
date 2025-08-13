@@ -12,7 +12,7 @@ from .blocks import Alignment
 from .stereo.NMP import Head
     
 
-class OmniDepth(nn.Module):
+class BridgeDepth(nn.Module):
 
     def __init__(
         self,
@@ -21,7 +21,7 @@ class OmniDepth(nn.Module):
     ):
         super().__init__()
 
-        encoder = cfg.OMNIDEPTH.ENCODER_VIT
+        encoder = cfg.BRIDGEDEPTH.ENCODER_VIT
         self.encoder = encoder
         self.padder = None
 

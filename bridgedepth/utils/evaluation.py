@@ -13,9 +13,9 @@ from torch import nn
 from torch.utils.data.sampler import Sampler
 from einops import rearrange
 
-from omnidepth.utils.logger import log_every_n_seconds
-from omnidepth.utils import dist_utils as comm
-from omnidepth.utils import frame_utils
+from .logger import log_every_n_seconds
+from . import dist_utils as comm
+from . import frame_utils
 
 
 def print_csv_format(results):

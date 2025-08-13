@@ -7,8 +7,6 @@ TEST:
   EVAL_MAX_DISP: [null, null, null, 1000]
   EVAL_ONLY_VALID: (True, True, True, False)
   EVAL_PROP: (True, True, True, True)
-OMNIDEPTH:
-  ENCODER_VIT: "vitl"
 DPN:
   MAX_DISP: 312
   NUM_PROPOSALS: 2

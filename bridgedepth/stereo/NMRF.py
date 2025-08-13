@@ -4,11 +4,11 @@ import torch.nn.functional as F
 from torch.nn.init import trunc_normal_
 from einops import rearrange, repeat
 
-from omnidepth.config import configurable
-from omnidepth.stereo.backbone import create_backbone
-from omnidepth.stereo.DPN import DPN
-from omnidepth.stereo.submodule import build_correlation_volume
-from omnidepth.stereo.NMP import fourier_coord_embed, Mlp
+from bridgedepth.config import configurable
+from .backbone import create_backbone
+from .DPN import DPN
+from .submodule import build_correlation_volume
+from .NMP import fourier_coord_embed, Mlp
 
 
 class NMRF(nn.Module):

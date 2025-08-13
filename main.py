@@ -11,13 +11,13 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.utils.tensorboard import SummaryWriter
 
-from omnidepth.omnidepth import OmniDepth
-from omnidepth.data import build_train_loader, build_val_loader
-from omnidepth.loss import build_criterion
-from omnidepth.utils import misc
-import omnidepth.utils.dist_utils as comm
-from omnidepth.utils.logger import setup_logger
-from omnidepth.utils import evaluation
+from bridgedepth.bridgedepth import BridgeDepth
+from bridgedepth.data import build_train_loader, build_val_loader
+from bridgedepth.loss import build_criterion
+from bridgedepth.utils import misc
+import bridgedepth.utils.dist_utils as comm
+from bridgedepth.utils.logger import setup_logger
+from bridgedepth.utils import evaluation
 
 DEFAULT_TIMEOUT = timedelta(minutes=30)
 
@@ -40,7 +40,7 @@ def get_args_parser():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--config-file", default="", metavar="FILE", help="path to config file")
-    parser.add_argument('--checkpoint-dir', default='checkpoints/omnidepth', type=str,
+    parser.add_argument('--checkpoint-dir', default='checkpoints/bridgedepth', type=str,
                         help='where to save the training log and models')
     parser.add_argument('--eval-only', action='store_true')
 
@@ -122,7 +122,7 @@ def launch(
             port = _find_free_port()
             dist_url = f"tcp://127.0.0.1:{port}"
         if num_machines > 1 and dist_url.startswith("file://"):
-            logger = logging.getLogger("omnidepth")
+            logger = logging.getLogger("bridgedepth")
             logger.warning(
                 "file:// is not a reliable init_method in multi-machine jobs. Prefer tcp://"
             )
@@ -168,7 +168,7 @@ def _distributed_worker(
             timeout=timeout,
         )
     except Exception as e:
-        logger = logging.getLogger('omnidepth')
+        logger = logging.getLogger('bridgedepth')
         logger.error("Process group URL: {}".format(dist_url))
         raise e
 
@@ -232,7 +232,7 @@ def _setup(cfg, args):
     """
     Perform some basic common setups at the beginning of a job, including:
 
-    1. Set up the omnidepth logger
+    1. Set up the bridgedepth logger
     2. Log basic information about environment, cmdline arguments, git commit, and config
     3. Backup the config to the output directory
 
@@ -245,7 +245,7 @@ def _setup(cfg, args):
         misc.check_path(checkpoint_dir)
 
     rank = comm.get_rank()
-    logger = setup_logger(checkpoint_dir, distributed_rank=rank, name='omnidepth')
+    logger = setup_logger(checkpoint_dir, distributed_rank=rank, name='bridgedepth')
 
     logger.info("Rank of current process: {}. World size: {}".format(rank, comm.get_world_size()))
     logger.info("Environment info:\n" + misc.collect_env_info())
@@ -272,7 +272,7 @@ def setup(args):
     """
     Create config and perform basic setups.
     """
-    from omnidepth.config import get_cfg
+    from bridgedepth.config import get_cfg
     cfg = get_cfg()
     if len(args.config_file) > 0:
         cfg.merge_from_file(args.config_file)
@@ -284,7 +284,7 @@ def setup(args):
 
 
 def evaluate(model, cfg):
-    logger = logging.getLogger("omnidepth")
+    logger = logging.getLogger("bridgedepth")
     results = OrderedDict()
     for idx, dataset_name in enumerate(cfg.DATASETS.TEST):
         data_loader = build_val_loader(cfg, dataset_name)
@@ -313,7 +313,7 @@ def main(args):
     cfg = setup(args)
 
     # model = build_model(cfg)
-    model = OmniDepth(cfg, mono_pretrained=True)
+    model = BridgeDepth(cfg, mono_pretrained=True)
     model = model.to(torch.device("cuda"))
     criterion = build_criterion(cfg)
 
@@ -328,7 +328,7 @@ def main(args):
         model_without_ddp = model
 
     num_params = sum(p.numel() for p in model_without_ddp.parameters())
-    logger = logging.getLogger("omnidepth")
+    logger = logging.getLogger("bridgedepth")
     logger.info('Number of params:' + str(num_params))
     logger.info(
         "params:\n" + json.dumps({n: p.numel() for n, p in model_without_ddp.named_parameters() if p.requires_grad},

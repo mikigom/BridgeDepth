@@ -17,7 +17,7 @@ import torch.distributed as dist
 import PIL
 from tabulate import tabulate
 
-import omnidepth.utils.dist_utils as comm
+from . import dist_utils as comm
 
 
 # needed due to empty tensor bug in pytorch and torchvision 0.5
