@@ -9,6 +9,3 @@ TEST:
   EVAL_PROP: (True, True, True, True)
 DPN:
   MAX_DISP: 312
-  NUM_PROPOSALS: 2
-NMP:
-  REFINE_WINDOW_SIZE: 4

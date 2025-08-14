@@ -36,7 +36,7 @@ _CN.BACKBONE.DROP_PATH = 0.0
 _CN.DPN = CN()
 _CN.DPN.MAX_DISP = 320
 _CN.DPN.COST_GROUP = 4
-_CN.DPN.NUM_PROPOSALS = 4
+_CN.DPN.NUM_PROPOSALS = 2
 _CN.DPN.CONTEXT_DIM = 64
 
 _CN.NMP = CN()
@@ -176,3 +176,11 @@ _CN.CUDNN_BENCHMARK = True
 # Do not commit any configs into it.
 _CN.GLOBAL = CN()
 _CN.GLOBAL.HACK = 1.0
+
+
+def export_model_config(cfg: CN) -> CN:
+    model_config = CN()
+    fields = ["BACKBONE", "DPN", "NMP", "BRIDGEDEPTH"]
+    for fld in fields:
+        setattr(model_config, fld, getattr(cfg, fld))
+    return model_config.clone()

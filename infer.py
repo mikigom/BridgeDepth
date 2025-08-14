@@ -7,7 +7,7 @@ import cv2
 
 from bridgedepth.config import get_cfg
 from bridgedepth.utils.logger import setup_logger
-from bridgedepth.data import datasets
+from bridgedepth.dataloader import datasets
 from bridgedepth.utils import frame_utils, visualization
 from bridgedepth.bridgedepth import BridgeDepth
 
@@ -15,9 +15,6 @@ from bridgedepth.bridgedepth import BridgeDepth
 def setup_cfg(args):
     # load config from file and command-line arguments
     cfg = get_cfg()
-    # To use demo for Panoptic-DeepLab, please uncomment the following two lines.
-    # from detectron2.projects.panoptic_deeplab import add_panoptic_deeplab_config  # noqa
-    # add_panoptic_deeplab_config(cfg)
     if len(args.config_file) > 0:
         cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
@@ -26,13 +23,14 @@ def setup_cfg(args):
 
 
 def get_parser():
-    parser = argparse.ArgumentParser(description="NMRF demo for builtin configs")
+    parser = argparse.ArgumentParser(description="BridgeDepth demo for builtin configs")
     parser.add_argument(
         "--config-file",
         default="",
         metavar="FILE",
         help="path to config file",
     )
+    parser.add_argument("--from-pretrained", default="", metavar="FILE", help="path to the checkpoint file or repo id")
     parser.add_argument("--dataset-name", help="Dataset name to generate prediction results")
     parser.add_argument(
         "--input",
@@ -92,9 +90,7 @@ def run_on_dataset(dataset, model, output, find_output_path=None, show_attr="dis
             output_path = os.path.join(output, find_output_path(file_path))
             dirname = os.path.dirname(output_path)
             os.makedirs(dirname, exist_ok=True)
-            # visualized_output.save(output_path)
-            disp_pred = disp_pred.numpy()
-            frame_utils.writeDispKITTI(output_path, disp_pred)
+            visualized_output.save(output_path)
         else:
             cv2.namedWindow(f"{show_attr}", cv2.WINDOW_NORMAL)
             cv2.imshow(f"{show_attr}", visualized_output.get_image()[:, :, ::-1])
@@ -254,11 +250,8 @@ if __name__ == "__main__":
 
     cfg = setup_cfg(args)
 
-    model = BridgeDepth(cfg)
+    model = BridgeDepth.from_pretrained(args.from_pretrained)
     model = model.to(torch.device("cuda"))
-    checkpoint = torch.load(cfg.SOLVER.RESUME, map_location="cpu")
-    weights = checkpoint['model'] if 'model' in checkpoint else checkpoint
-    model.load_state_dict(weights, strict=cfg.SOLVER.STRICT_RESUME)
 
     output = args.output
     if args.dataset_name:
@@ -271,20 +264,16 @@ if __name__ == "__main__":
         elif args.dataset_name.startswith("middlebury_"):
             output = args.output if args.output else '.'
             create_middlebury_submission(model, output, split=args.dataset_name.replace('middlebury_', ''))
-        elif args.dataset_name == 'booster':
-            dataset = datasets.Booster(variant='both')
-            run_on_dataset(dataset, model, output, _find_output_path("booster"), args.show_attr)
         else:
             raise ValueError(f"Not supported dataset {args.dataset_name} for inference")
     elif args.input:
         import glob
-        left = sorted(glob.glob(os.path.join(args.input[0], "*.png")))
-        right = sorted(glob.glob(os.path.join(args.input[1], "*.png")))
+        left = sorted(glob.glob(os.path.join(args.input[0], "*.png"))) + sorted(glob.glob(os.path.join(args.input[0], "*.jpg")))
+        right = sorted(glob.glob(os.path.join(args.input[1], "*.png"))) + sorted(glob.glob(os.path.join(args.input[1], "*.jpg")))
         assert len(left) == len(right)
         image_list = list(zip(left, right))
         dataset = datasets.StereoDataset()
         dataset.image_list = image_list
         dataset.is_test = True
-        dataset.extra_info = [None] * len(image_list)
         prefix = os.path.dirname(image_list[0][0])
         run_on_dataset(dataset, model, output, _find_output_path(prefix), args.show_attr)

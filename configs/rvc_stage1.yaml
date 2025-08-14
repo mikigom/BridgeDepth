@@ -2,10 +2,6 @@ BACKBONE:
   MODEL_TYPE: "convnext"
   OUT_CHANNELS: 128
   DROP_PATH: 0.3
-DPN:
-  NUM_PROPOSALS: 2
-NMP:
-  REFINE_WINDOW_SIZE: 4
 DATASETS:
   TRAIN: ("sceneflow", "falling_things", "crestereo", "tartan_air", "carla_highres", "sintel_stereo", "vkitti2")
   MUL: (1, 1, 1, 1, 80, 3, 3)

@@ -3,23 +3,19 @@ import os
 import argparse
 import sys
 import json
-from datetime import timedelta
-from collections import OrderedDict
 
 import torch
-import torch.distributed as dist
-import torch.multiprocessing as mp
 from torch.utils.tensorboard import SummaryWriter
 
+from bridgedepth.config import export_model_config
 from bridgedepth.bridgedepth import BridgeDepth
-from bridgedepth.data import build_train_loader, build_val_loader
+from bridgedepth.dataloader import build_train_loader
 from bridgedepth.loss import build_criterion
 from bridgedepth.utils import misc
 import bridgedepth.utils.dist_utils as comm
 from bridgedepth.utils.logger import setup_logger
-from bridgedepth.utils import evaluation
-
-DEFAULT_TIMEOUT = timedelta(minutes=30)
+from bridgedepth.utils.launch import launch
+from bridgedepth.utils.eval_disp import eval_disp
 
 
 def get_args_parser():
@@ -40,9 +36,10 @@ def get_args_parser():
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--config-file", default="", metavar="FILE", help="path to config file")
-    parser.add_argument('--checkpoint-dir', default='checkpoints/bridgedepth', type=str,
+    parser.add_argument("--checkpoint-dir", default=None, type=str,
                         help='where to save the training log and models')
-    parser.add_argument('--eval-only', action='store_true')
+    parser.add_argument("--eval-only", action='store_true')
+    parser.add_argument("--from-pretrained", default=None, help='path to the checkpoint file or repo id when eval_only is True')
 
     # distributed training
     parser.add_argument("--num-gpus", type=int, default=1, help="number of gpus *per machine*")
@@ -71,119 +68,6 @@ def get_args_parser():
     )
 
     return parser
-
-
-def _find_free_port():
-    import socket
-
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # Binding to port 0 will cause the OS to find an available port for us
-    sock.bind(("", 0))
-    port = sock.getsockname()[1]
-    sock.close()
-    # NOTE: there is still a chance the port could be taken by other processes.
-    return port
-
-
-def launch(
-        main_func,
-        # Should ne num_processes_per_machine, but kept for compatibility.
-        num_gpus_per_machine,
-        num_machines=1,
-        machine_rank=0,
-        dist_url=None,
-        args=(),
-        timeout=DEFAULT_TIMEOUT,
-):
-    """
-    Launch multi-process or distributed training.
-    This function must be called on all machines involved in the training.
-    It will spawn child process (defined by ``num_gpus_per_machine``) on each machine.
-
-    Args:
-        main_func: a function that will be called by `main_func(*args)`
-        num_gpus_per_machine (int): number of processes per machine. When
-            using GPUs, this should be the number of GPUs.
-        num_machines (int): the total number of machines
-        machine_rank (int): the rank of this machine
-        dist_url (str): url to connect to for distributed jobs, including protocol
-                        e.g. "tcp://127.0.0.1:8686".
-                        Can be set to "auto" to automatically select a free port on localhost
-        args (tuple): arguments passed to main_func
-        timeout (timedelta): timeout of the distributed workers
-    """
-    world_size = num_machines * num_gpus_per_machine
-    if world_size > 1:
-        # https://github.com/pytorch/pytorch/pull/14391
-        # TODO prctl in spawned processes
-
-        if dist_url == "auto":
-            assert num_machines == 1, "dist_url=auto not supported in multi-machine jobs."
-            port = _find_free_port()
-            dist_url = f"tcp://127.0.0.1:{port}"
-        if num_machines > 1 and dist_url.startswith("file://"):
-            logger = logging.getLogger("bridgedepth")
-            logger.warning(
-                "file:// is not a reliable init_method in multi-machine jobs. Prefer tcp://"
-            )
-
-        mp.start_processes(
-            _distributed_worker,
-            nprocs=num_gpus_per_machine,
-            args=(
-                main_func,
-                world_size,
-                num_gpus_per_machine,
-                machine_rank,
-                dist_url,
-                args,
-                timeout,
-            ),
-            daemon=False,
-        )
-    else:
-        main_func(*args)
-
-
-def _distributed_worker(
-        local_rank,
-        main_func,
-        world_size,
-        num_gpus_per_machine,
-        machine_rank,
-        dist_url,
-        args,
-        timeout=DEFAULT_TIMEOUT,
-):
-    has_gpu = torch.cuda.is_available()
-    if has_gpu:
-        assert num_gpus_per_machine <= torch.cuda.device_count()
-    global_rank = machine_rank * num_gpus_per_machine + local_rank
-    try:
-        dist.init_process_group(
-            backend="NCCL" if has_gpu else "GLOO",
-            init_method=dist_url,
-            world_size=world_size,
-            rank=global_rank,
-            timeout=timeout,
-        )
-    except Exception as e:
-        logger = logging.getLogger('bridgedepth')
-        logger.error("Process group URL: {}".format(dist_url))
-        raise e
-
-    # Setup the local process group.
-    comm.create_local_process_group(num_gpus_per_machine)
-    if has_gpu:
-        torch.cuda.set_device(local_rank)
-
-    # synchronize is needed here to prevent a possible timeout after calling init_process_group
-    # See: https://github.com/facebookresearch/maskrcnn-benchmark/issuees/172
-    comm.synchronize()
-
-    main_func(*args)
-    
-    dist.destroy_process_group()
 
 
 def build_optimizer(model, cfg):
@@ -283,39 +167,15 @@ def setup(args):
     return cfg
 
 
-def evaluate(model, cfg):
-    logger = logging.getLogger("bridgedepth")
-    results = OrderedDict()
-    for idx, dataset_name in enumerate(cfg.DATASETS.TEST):
-        data_loader = build_val_loader(cfg, dataset_name)
-        # build evaluator for this dataset
-        evaluator = evaluation.DispEvaluator(thres=cfg.TEST.EVAL_THRESH[idx], only_valid=cfg.TEST.EVAL_ONLY_VALID[idx],
-                                             max_disp=cfg.TEST.EVAL_MAX_DISP[idx], eval_prop=cfg.TEST.EVAL_PROP[idx],
-                                             divis_by=cfg.DATASETS.DIVIS_BY)
-        results_i = evaluation.inference_on_dataset(model, data_loader, evaluator)
-        results[dataset_name] = results_i
-        if comm.is_main_process():
-            assert isinstance(
-                results_i, dict
-            ), "Evaluator must return a dict on the main process. Got {} instead.".format(
-                results_i
-            )
-            logger.info("Evaluation results for {} in csv format:".format(dataset_name))
-            evaluation.print_csv_format(results_i)
-
-    if len(results) == 1:
-        results = list(results.values())[0]
-    return results
-
-
 def main(args):
     # torch.backends.cudnn.benchmark = False
     cfg = setup(args)
 
-    # model = build_model(cfg)
-    model = BridgeDepth(cfg, mono_pretrained=True)
+    if args.eval_only:
+        model = BridgeDepth.from_pretrained(args.from_pretrained)
+    else:
+        model = BridgeDepth(cfg, mono_pretrained=True)
     model = model.to(torch.device("cuda"))
-    criterion = build_criterion(cfg)
 
     if comm.get_world_size() > 1:
         model = torch.nn.parallel.DistributedDataParallel(
@@ -327,6 +187,11 @@ def main(args):
     else:
         model_without_ddp = model
 
+    # evaluate
+    if args.eval_only:
+        eval_disp(model, cfg)
+        return
+
     num_params = sum(p.numel() for p in model_without_ddp.parameters())
     logger = logging.getLogger("bridgedepth")
     logger.info('Number of params:' + str(num_params))
@@ -335,6 +200,7 @@ def main(args):
                                  indent=2))
 
     optimizer = build_optimizer(model_without_ddp, cfg)
+    criterion = build_criterion(cfg)
 
     # resume checkpoints
     start_epoch = 0
@@ -345,8 +211,7 @@ def main(args):
     if resume:
         logger.info('Load checkpoint: %s' % resume)
 
-        loc = 'cuda'
-        checkpoint = torch.load(resume, map_location=loc)
+        checkpoint = torch.load(resume, map_location='cpu')
 
         weights = checkpoint['model'] if 'model' in checkpoint else checkpoint
 
@@ -357,11 +222,6 @@ def main(args):
             optimizer.load_state_dict(checkpoint['optimizer'])
             start_epoch = checkpoint['epoch']
             start_step = checkpoint['step']
-
-    # evaluate
-    if args.eval_only:
-        evaluate(model, cfg)
-        return
 
     # training dataset
     train_loader, train_sampler = build_train_loader(cfg)
@@ -430,7 +290,8 @@ def main(args):
                 if comm.is_main_process():
                     checkpoint_path = os.path.join(args.checkpoint_dir, 'step_%06d.pth' % total_steps)
                     torch.save({
-                        'model': model_without_ddp.state_dict()
+                        'model': model_without_ddp.state_dict(),
+                        'model_config': export_model_config(cfg),
                     }, checkpoint_path)
 
             if total_steps % cfg.SOLVER.LATEST_CHECKPOINT_PERIOD == 0:
@@ -439,6 +300,7 @@ def main(args):
                 if comm.is_main_process():
                     torch.save({
                         'model': model_without_ddp.state_dict(),
+                        'model_config': export_model_config(cfg),
                         'optimizer': optimizer.state_dict(),
                         'step': total_steps,
                         'epoch': epoch,
@@ -447,7 +309,7 @@ def main(args):
             if cfg.TEST.EVAL_PERIOD > 0 and total_steps % cfg.TEST.EVAL_PERIOD == 0:
                 logger.info('Start validation')
 
-                result_dict = evaluate(model, cfg)
+                result_dict = eval_disp(model, cfg)
                 if comm.is_main_process():
                     for k, v in result_dict.items():
                         if isinstance(v, dict):

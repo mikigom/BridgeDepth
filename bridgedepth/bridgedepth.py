@@ -1,3 +1,5 @@
+from typing import Union, IO
+from pathlib import Path
 from functools import partial
 import os
 import torch
@@ -5,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
 
+from .config import CfgNode
 from .monocular.depth_anything import DepthAnything
 from .stereo import build_model as build_stereo_encoder
 from .utils.frame_utils import InputPadder
@@ -70,6 +73,27 @@ class BridgeDepth(nn.Module):
     @property
     def device(self):
         return self.stereo_encoder.device
+    
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_path: Union[str, Path, IO[bytes]]) -> 'BridgeDepth':
+        """
+        Load a model from a checkpoint file.
+
+        Args:
+            pretrained_model_name_or_path: path to the checkpoint file or repo id.
+
+        Returns:
+            a new instance of `BridgeDepth` with the parameters loaded from the checkpoint.
+        """
+        torch.serialization.add_safe_globals([CfgNode])
+        if Path(pretrained_model_name_or_path).exists():
+            checkpoint = torch.load(pretrained_model_name_or_path, map_location='cpu', weights_only=True)
+        else:
+            pass
+        model_config = checkpoint['model_config']
+        model = cls(model_config)
+        model.load_state_dict(checkpoint['model'])
+        return model
     
     def prepare_input(self, inputs):
         img1 = inputs["img1"].to(self.device)
