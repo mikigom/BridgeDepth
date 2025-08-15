@@ -37,18 +37,21 @@ pip install xformers==0.0.30 --index-url https://download.pytorch.org/whl/cu126 
 We provide several pre-trained models:
 
 
-| Modelname | Benchmark | Training resolutions | Stereo encoder | Training Config |
-|-----------|-----------|----------------------|----------------|---------------|
-| [`bridge_sf.pth`](https://drive.google.com/file/d/17SdccWLVvCBJQAWcsmFfrwjn6HAV4Z6F/view?usp=sharing) | Scene Flow | 368x784 | BasicEncoder | [`default.py`](bridgedepth/config/default.py) |
-| [`bridge_l_sf.pth`](https://drive.google.com/file/d/1TLiDY6PPq-WSK1fXYUHQofkM_UyhsyzO/view?usp=sharing) | Scene Flow | 368x784 | ConvNext-Tiny | [`l_train.yaml`](configs/L_train.yaml) |
-| [`bridge_kitti.pth`](https://drive.google.com/file/d/1DaKQc-6jOwKr_vgSeXytCJnaWyrAidn7/view?usp=sharing) | KITTI 2012/2015 | 304x1152 |ConvNext-Tiny | [`kitti_mix_train.yaml`](configs/kitti_mix_train.yaml) |
-|[`bridge_eth3d_pretrain.pth`](https://drive.google.com/file/d/1MImpyN27Q19zRizy7QlcgXV_ji5CKu2n/view?usp=sharing),  [`bridge_eth3d.pth`](https://drive.google.com/file/d/1wr3hBRvD_iEp1U83vP_yxEqdWUMSP1Om/view?usp=sharing)  | ETH3D | 384x512 | ConvNext-Tiny | [`eth3d_stage1.yaml`](configs/eth3d_stage1.yaml), [`eth3d_stage2.yaml`](configs/eth3d_stage2.yaml) |
-| [`bridge_middlebury_pretrain.pth`](https://drive.google.com/file/d/1Ay2G-RG6b48iO3X5os4I7Kv2Mr8pqgkn/view?usp=sharing), [`bridge_middlebury.pth`](https://drive.google.com/file/d/1NExaTOSR7nKy47FOyGrMS7-iw_33K0_z/view?usp=sharing) | Middlebury | 384x512, 512x768 | ConvNext-Tiny | [`middlebury_stage1.yaml`](configs/middlebury_stage1.yaml), [`middlebury_stage2.yaml`](configs/middlebury_stage2.yaml) |
-| [`bridge_rvc_pretrain.pth`](https://drive.google.com/file/d/1aSeVqq0YzpPwo4A2lRdTf2ly3mC1trYz/view?usp=sharing), [`bridge_rvc.pth`](https://drive.google.com/file/d/1bg6aw9nSyDikragSRaERmbYhgHUPszEN/view?usp=sharing) | Robust Vision Challenge | 384x768, 384x768 | ConvNext-Tiny | [`rvc_stage1.yaml`](configs/rvc_stage1.yaml), [`rvc_stage2.yaml`](configs/rvc_stage2.yaml) |
+| Model name | Benchmark | Training resolutions | Stereo encoder | Training Config |
+|------------|-----------|----------------------|----------------|-----------------|
+| [`sf.pth`](https://huggingface.co/aeolusguan/BridgeDepth/resolve/main/bridge_sf.pth) | Scene Flow | 368x784 | BasicEncoder | [`default.py`](bridgedepth/config/default.py) |
+| [`l_sf.pth`](https://huggingface.co/aeolusguan/BridgeDepth/resolve/main/bridge_l_sf.pth) | Scene Flow | 368x784 | ConvNext-Tiny | [`l_train.yaml`](configs/L_train.yaml) |
+| [`kitti.pth`](https://huggingface.co/aeolusguan/BridgeDepth/resolve/main/bridge_kitti.pth) | KITTI 2012/2015 | 304x1152 |ConvNext-Tiny | [`kitti_mix_train.yaml`](configs/kitti_mix_train.yaml) |
+|[`eth3d_pretrain.pth`](https://huggingface.co/aeolusguan/BridgeDepth/resolve/main/bridge_eth3d_pretrain.pth),  [`eth3d.pth`](https://huggingface.co/aeolusguan/BridgeDepth/resolve/main/bridge_eth3d.pth)  | ETH3D | 384x512 | ConvNext-Tiny | [`eth3d_pretrain.yaml`](configs/eth3d_pretrain.yaml), [`eth3d.yaml`](configs/eth3d.yaml) |
+| [`middlebury_pretrain.pth`](https://huggingface.co/aeolusguan/BridgeDepth/resolve/main/bridge_middlebury_pretrain.pth), [`middlebury.pth`](https://huggingface.co/aeolusguan/BridgeDepth/resolve/main/bridge_middlebury.pth) | Middlebury | 384x512, 512x768 | ConvNext-Tiny | [`middlebury_pretrain.yaml`](configs/middlebury_pretrain.yaml), [`middlebury.yaml`](configs/middlebury.yaml) |
+| [`rvc_pretrain.pth`](https://huggingface.co/aeolusguan/BridgeDepth/resolve/main/bridge_rvc_pretrain.pth), [`rvc.pth`](https://huggingface.co/aeolusguan/BridgeDepth/resolve/main/bridge_rvc.pth) | Robust Vision Challenge | 384x768, 384x768 | ConvNext-Tiny | [`rvc_pretrain.yaml`](configs/rvc_pretrain.yaml), [`rvc.yaml`](configs/rvc.yaml) |
 
-Tips:
-- For in the wild deployment, we generally recommend the [`bridge_rvc_pretrain.pth`](https://drive.google.com/file/d/1aSeVqq0YzpPwo4A2lRdTf2ly3mC1trYz/view?usp=sharing) checkpoint. You are encouraged to also try other models for your best fit ([`bridge_middlebury_pretrain.pth`](https://drive.google.com/file/d/1Ay2G-RG6b48iO3X5os4I7Kv2Mr8pqgkn/view?usp=sharing), [`bridge_eth3d_pretrain.pth`](https://drive.google.com/file/d/1MImpyN27Q19zRizy7QlcgXV_ji5CKu2n/view?usp=sharing), or [`bridge_rvc.pth`](https://drive.google.com/file/d/1bg6aw9nSyDikragSRaERmbYhgHUPszEN/view?usp=sharing) maybe your favorite).
-- For high-resolution image (>720p), you are highly suggested to run with smaller scale, e.g., **downsampled to 720p**, not only for faster inference but also better performance.
 
 ### Run demo
-Coming Soon !
+```bash
+python demo.py --model_name rvc  # also try with [rvc_pretrain | eth3d_pretrain | middlebury_pretrain]
+```
+
+Tips:
+- For in the wild deployment, we generally recommend the [`bridge_rvc_pretrain.pth`](https://huggingface.co/aeolusguan/BridgeDepth/resolve/main/bridge_rvc_pretrain.pth) checkpoint. You are encouraged to also try other models for your best fit ([`bridge_middlebury_pretrain.pth`](https://huggingface.co/aeolusguan/BridgeDepth/resolve/main/bridge_middlebury_pretrain.pth), [`bridge_eth3d_pretrain.pth`](https://huggingface.co/aeolusguan/BridgeDepth/resolve/main/bridge_eth3d_pretrain.pth), or [`bridge_rvc.pth`](https://huggingface.co/aeolusguan/BridgeDepth/resolve/main/bridge_rvc.pth) maybe your favorite).
+- For high-resolution image (>720p), you are highly suggested to run with smaller scale, e.g., **downsampled to 720p**, not only for faster inference but also better performance.

@@ -277,7 +277,7 @@ class Visualizer:
             img = cm(norm_disparity_map)
             img = (255 * img).astype(np.uint8)
         else:
-            img = cv2.applyColorMap(cv2.convertScaleAbs(norm_disparity_map, 1), colormap)
+            img = cv2.applyColorMap((norm_disparity_map.clip(0, 1) * 255).astype(np.uint8), colormap)[..., ::-1].astype(np.uint8)
         self.output.ax.imshow(img, extent=(0, self.output.width, self.output.height, 0))
         return self.output
 

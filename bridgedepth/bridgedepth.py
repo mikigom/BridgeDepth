@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
+from huggingface_hub import hf_hub_download
 
 from .config import CfgNode
 from .monocular.depth_anything import DepthAnything
@@ -75,12 +76,13 @@ class BridgeDepth(nn.Module):
         return self.stereo_encoder.device
     
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path: Union[str, Path, IO[bytes]]) -> 'BridgeDepth':
+    def from_pretrained(cls, pretrained_model_name_or_path: Union[str, Path, IO[bytes]], **hf_kwargs) -> 'BridgeDepth':
         """
         Load a model from a checkpoint file.
 
         Args:
             pretrained_model_name_or_path: path to the checkpoint file or repo id.
+            hf_kwargs: additional keyword arguements to pass to the hf_hub_download function. Ignored if pretrained_model_name_or_path is a local path.
 
         Returns:
             a new instance of `BridgeDepth` with the parameters loaded from the checkpoint.
@@ -89,7 +91,13 @@ class BridgeDepth(nn.Module):
         if Path(pretrained_model_name_or_path).exists():
             checkpoint = torch.load(pretrained_model_name_or_path, map_location='cpu', weights_only=True)
         else:
-            pass
+            cached_checkpoint_path = hf_hub_download(
+                repo_id="aeolusguan/BridgeDepth",
+                repo_type="model",
+                filename=f"bridge_{pretrained_model_name_or_path}.pth",
+                **hf_kwargs,
+            )
+            checkpoint = torch.load(cached_checkpoint_path, map_location='cpu', weights_only=True)
         model_config = checkpoint['model_config']
         model = cls(model_config)
         model.load_state_dict(checkpoint['model'])

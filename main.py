@@ -39,7 +39,7 @@ def get_args_parser():
     parser.add_argument("--checkpoint-dir", default=None, type=str,
                         help='where to save the training log and models')
     parser.add_argument("--eval-only", action='store_true')
-    parser.add_argument("--from-pretrained", default=None, help='path to the checkpoint file or repo id when eval_only is True')
+    parser.add_argument("--from-pretrained", default=None, help='path to the checkpoint file or model name when eval_only is True')
 
     # distributed training
     parser.add_argument("--num-gpus", type=int, default=1, help="number of gpus *per machine*")
