@@ -10,7 +10,7 @@ Monocular and stereo depth estimation offer complementary strengths: monocular m
 
 ![Example of reconstructions](assets/overview.png)
 
-**TLDR**: Why choose between blurry monocular guesses and stereo confusion when you have both? This AI bridges mono and stereo depth to finally take it out --- like therapy, but for pixels. Now solves reflections like a champ.
+**TLDR**: A unified framework combines monocular and stereo depth estimation through iterative bidirectional alignment of latent representations, achieving state-of-the-art results and addressing ambiguities in stereo vision.
 
 ## Get Started
 
@@ -62,18 +62,18 @@ Point cloud output (**without denoising**)
   <img src="./assets/cloud.gif">
 </p>
 
-Tips:
-- For in the wild deployment, we generally recommend the [`rvc_pretrain.pth`](https://huggingface.co/aeolusguan/BridgeDepth/resolve/main/bridge_rvc_pretrain.pth) checkpoint. You are encouraged to also try other models for your best fit ([`middlebury_pretrain.pth`](https://huggingface.co/aeolusguan/BridgeDepth/resolve/main/bridge_middlebury_pretrain.pth), [`eth3d_pretrain.pth`](https://huggingface.co/aeolusguan/BridgeDepth/resolve/main/bridge_eth3d_pretrain.pth), or [`rvc.pth`](https://huggingface.co/aeolusguan/BridgeDepth/resolve/main/bridge_rvc.pth) maybe your favorite).
-- For high-resolution image (>720p), you are highly suggested to run with smaller scale, e.g., **downsampled to 720p**, not only for faster inference but also better performance.
-
 ### Inference
 To test on your own stereo image pairs, placed at `$left_directory` and `$right_direcoty` respectively
 ```bash
 python infer.py --input $left_directory $right_directory --output $output_directory --from-pretrained rvc_pretrain # also try with [rvc | eth3d_pretrain | middlebury_pretrain]
 ```
 
+Tips:
+- For in the wild deployment, we generally recommend the [`rvc_pretrain.pth`](https://huggingface.co/aeolusguan/BridgeDepth/resolve/main/bridge_rvc_pretrain.pth) checkpoint. You are encouraged to also try other models for your best fit ([`middlebury_pretrain.pth`](https://huggingface.co/aeolusguan/BridgeDepth/resolve/main/bridge_middlebury_pretrain.pth), [`eth3d_pretrain.pth`](https://huggingface.co/aeolusguan/BridgeDepth/resolve/main/bridge_eth3d_pretrain.pth), or [`rvc.pth`](https://huggingface.co/aeolusguan/BridgeDepth/resolve/main/bridge_rvc.pth) maybe your favorite).
+- For high-resolution image (>720p), you are highly suggested to run with smaller scale, e.g., **downsampled to 720p**, not only for faster inference but also better performance.
+
 ## Datasets
-To train/evaluate _BridgeDepth_, you fisrt need to prepare datasets following [this guide](bridgedepth/dataloader/README.md).
+To train/evaluate _BridgeDepth_, you first need to prepare datasets following [this guide](bridgedepth/dataloader/README.md).
 
 ## Evaluation
 To evaluate on SceneFlow test set, run
@@ -98,7 +98,7 @@ python infer.py --dataset-name middlebury_H --output middlebury_submission --fro
 
 First, download DAv2 models
 ```bash
-mkdir checkpoints; cd checkpoint
+mkdir checkpoints; cd checkpoints
 wget https://huggingface.co/depth-anything/Depth-Anything-V2-Large/resolve/main/depth_anything_v2_vitl.pth
 cd ..
 ```
@@ -115,23 +115,17 @@ python main.py --num-gpus 4 --config-file configs/L_train.yaml --checkpoint-dir 
 # KITTI
 python main.py --num-gpus 4 --config-file configs/kitti_mix_train.yaml --checkpoint-dir checkpoints/kitti SOLVER.RESUME checkpoints/l_sf/step_300000.pth
 # ETH3D
-python main.py --num-gpus 4 --config-file configs/eth3d_pretrain.yaml
---checkpoint-dir checkpoints/eth3d_pretrain SOLVER.RESUME checkpoints/l_sf/step_300000.pth
-python main.py --num-gpus 4 --config-file configs/eth3d.yaml
---checkpoint-dir checkpoints/eth3d SOLVER.RESUME checkpoints/eth3d_pretrain/step_300000.pth
+python main.py --num-gpus 4 --config-file configs/eth3d_pretrain.yaml --checkpoint-dir checkpoints/eth3d_pretrain SOLVER.RESUME checkpoints/l_sf/step_300000.pth
+python main.py --num-gpus 4 --config-file configs/eth3d.yaml --checkpoint-dir checkpoints/eth3d SOLVER.RESUME checkpoints/eth3d_pretrain/step_300000.pth
 # Middlebury
-python main.py --num-gpus 4 --config-file configs/middlebury_pretrain.yaml
---checkpoint-dir checkpoints/middlebury_pretrain SOLVER.RESUME checkpoints/l_sf/step_300000.pth
-python main.py --num-gpus 4 --config-file configs/middlebury.yaml
---checkpoint-dir checkpoints/middlebury SOLVER.RESUME checkpoints/middlebury_pretrain/step_200000.pth
+python main.py --num-gpus 4 --config-file configs/middlebury_pretrain.yaml --checkpoint-dir checkpoints/middlebury_pretrain SOLVER.RESUME checkpoints/l_sf/step_300000.pth
+python main.py --num-gpus 4 --config-file configs/middlebury.yaml --checkpoint-dir checkpoints/middlebury SOLVER.RESUME checkpoints/middlebury_pretrain/step_200000.pth
 # RVC
-python main.py --num-gpus 4 --config-file configs/rvc_pretrain.yaml
---checkpoint-dir checkpoints/rvc_pretrain SOLVER.RESUME checkpoints/l_sf/step_300000.pth
-python main.py --num-gpus 4 --config-file configs/rvc.yaml
---checkpoint-dir checkpoints/rvc SOLVER.RESUME checkpoints/rvc_pretrain/step_200000.pth
+python main.py --num-gpus 4 --config-file configs/rvc_pretrain.yaml --checkpoint-dir checkpoints/rvc_pretrain SOLVER.RESUME checkpoints/l_sf/step_300000.pth
+python main.py --num-gpus 4 --config-file configs/rvc.yaml --checkpoint-dir checkpoints/rvc SOLVER.RESUME checkpoints/rvc_pretrain/step_200000.pth
 ```
 
-We support using tensorboard to monitor and visualize the training process. You can first start a tensorboard session with
+We support using tensorboard to monitor the training process. You can first start a tensorboard session with
 
 ```shell
 tensorboard --logdir checkpoints
