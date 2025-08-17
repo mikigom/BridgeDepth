@@ -49,7 +49,7 @@ We provide several pre-trained models:
 
 ### Run demo
 ```bash
-python demo.py --model_name rvc  # also try with [rvc_pretrain | eth3d_pretrain | middlebury_pretrain]
+python demo.py --model_name rvc_pretraini  # also try with [rvc | eth3d_pretrain | middlebury_pretrain]
 ```
 
 You can see output disparity visualization
