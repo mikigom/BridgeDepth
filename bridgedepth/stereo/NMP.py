@@ -125,11 +125,9 @@ class Attention(nn.Module):
 
         # multi-head attention
         q, k, v = self.q(q), self.k(k), self.v(x)
-        q = rearrange(q, 'b n (h d) -> b h n d', h=self.num_heads)
-        k = rearrange(k, 'b n (h d) -> b h n d', h=self.num_heads)
+        q, k, v = [rearrange(t, 'b n (h d) -> b h n d', h=self.num_heads) for t in [q, k, v]]
         attn = F.softmax(torch.einsum('bhid, bhjd -> bhij', q, k) * self.scale, dim=-1)
         attn = self.attn_drop(attn)
-        v = rearrange(v, 'b n (h d) -> b h n d', h=self.num_heads)
         x = torch.einsum('bhij, bhjd -> bhid', attn, v)
         x = rearrange(x, 'b h n d -> b n (h d)')
 
@@ -226,10 +224,12 @@ class WindowAttention(nn.Module):
             window_size (tuple[int]): The height, width, and depth (number of candidates) of attention window
         """
         idx = torch.arange(0, window_size[0] * window_size[1], dtype=torch.float32, device=device).view(-1, 1)
-        idx = idx.expand(window_size[0] * window_size[1], window_size[2]).flatten()
+        idx = idx.expand(-1, window_size[2]).flatten()
         attn_mask = idx.unsqueeze(-1) - idx.unsqueeze(0)
         attn_mask = attn_mask.masked_fill(attn_mask == 0, float('-inf')).masked_fill(attn_mask != 0, 0.0)
-        attn_mask.fill_diagonal_(0.0)
+        # attn_mask.fill_diagonal_(0.0)
+        arange = torch.arange(idx.numel())
+        attn_mask[arange, arange] = 0  # replace fill_diagonal_ for onnx export
         return attn_mask
     
     @staticmethod
@@ -424,7 +424,7 @@ class SwinNMP(nn.Module):
     
 
 class CSWinAttention(nn.Module):
-    def __init__(self, dim, idx, split_size=7, num_heads=8, qk_scale=None, attn_drop=0.):
+    def __init__(self, dim, idx, split_size=7, num_heads=8, qk_scale=None, attn_drop=0., fused_attn=True):
         """Attention within cross-shaped windows.
         """
         super().__init__()
@@ -433,6 +433,7 @@ class CSWinAttention(nn.Module):
         self.num_heads = num_heads
         head_dim = dim // num_heads
         self.scale = qk_scale or head_dim ** -0.5
+        self.fused_attn = fused_attn
         self.idx = idx
         self.H_sp = None
         self.W_sp = None
@@ -473,6 +474,7 @@ class CSWinAttention(nn.Module):
             BHWNC
         """
         _, H, W, N, _ = query.shape
+        device = query.device
 
         idx = self.idx
         if idx == -1:
@@ -504,16 +506,17 @@ class CSWinAttention(nn.Module):
         v = self.im2cswin(value)
 
         # Local attention
-        q = q * self.scale
-        attn = (q @ k.transpose(-2, -1))  # B head N C @ B head C N --> B head N N
         window_size = (self.H_sp, self.W_sp, N)
-        attn = attn + WindowAttention.gen_window_attn_mask(window_size, attn.device)[None, None, ...]
-
-        attn = nn.functional.softmax(attn, dim=-1, dtype=attn.dtype)
-
-        attn = self.attn_drop(attn)
-
-        x = (attn @ v)
+        attn_bias = WindowAttention.gen_window_attn_mask(window_size, device)[None, None, ...]
+        if self.fused_attn:
+            x = F.scaled_dot_product_attention(q, k, v, attn_bias, dropout_p=self.attn_drop.p if self.training else 0.0)
+        else:
+            q = q * self.scale
+            attn = (q @ k.transpose(-2, -1))  # B head N C @ B head C N --> B head N N
+            attn = attn + attn_bias
+            attn = nn.functional.softmax(attn, dim=-1, dtype=attn.dtype)
+            attn = self.attn_drop(attn)
+            x = attn @ v
         x = rearrange(x, '(b i j) h (hs ws n) d -> b (i hs) (j ws) n (h d)', i=Hp//self.H_sp, j=Wp//self.W_sp, hs=self.H_sp, ws=self.W_sp)
         x = x + rpe
         x = x[:, pad_t:H+pad_t, pad_l:W+pad_l, :, :].contiguous()

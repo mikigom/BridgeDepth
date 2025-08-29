@@ -114,7 +114,7 @@ class BridgeDepth(nn.Module):
             self.padder = None
         H, W = img1.shape[-2:]
         mono_size = (H // 8 * 7, W // 8 * 7)
-        mono_input = F.interpolate(img1, size=mono_size, mode="bilinear", align_corners=False, antialias=True)
+        mono_input = F.interpolate(img1, size=mono_size, mode="bilinear", align_corners=False)
 
         inputs["img1"] = img1
         inputs["img2"] = img2
@@ -169,7 +169,8 @@ class BridgeDepth(nn.Module):
         _, indices = torch.max(logit[-1], dim=-1, keepdim=True)
         disp_est = torch.gather(disp_0[-1], dim=-1, index=indices).squeeze(-1).detach() * 2  # [B,H,W]
         disp_est = rearrange(disp_est, 'b (h hs) (w ws) -> b h w (hs ws)', hs=4, ws=4)
-        disp_est = torch.median(disp_est.detach(), dim=-1, keepdim=True)[0]
+        # disp_est = torch.median(disp_est.detach(), dim=-1, keepdim=True)[0]
+        disp_est = torch.sort(disp_est.detach(), dim=-1)[0][..., 7:8]  # replace median for onnx export
         stereo_embed, stereo_pos_embed = self.stereo_encoder.construct_hypothesis_embedding(
             proposal=disp_est.flatten(0, 2),
             fmap1=stereo_outputs["fmap1_concat_list"][1],
