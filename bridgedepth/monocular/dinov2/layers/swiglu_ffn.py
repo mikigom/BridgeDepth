@@ -33,13 +33,8 @@ class SwiGLUFFN(nn.Module):
         return self.w3(hidden)
     
 
-try:
-    from xformers.ops import SwiGLU
-
-    XFORMERS_AVAILABLE = True
-except ImportError:
-    SwiGLU = SwiGLUFFN
-    XFORMERS_AVAILABLE = False
+SwiGLU = SwiGLUFFN
+XFORMERS_AVAILABLE = False
 
 
 class SwiGLUFFNFused(SwiGLU):

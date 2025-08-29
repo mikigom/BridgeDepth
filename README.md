@@ -28,8 +28,6 @@ conda create -n bridgedepth python=3.10
 conda activate bridgedepth
 pip install torch==2.7.0 torchvision==0.22.0 --index-url https://download.pytorch.org/whl/cu126  # use the correct version of cuda for your system
 pip install -r requirement.txt
-# Optional, but recommend (~30% faster)
-pip install xformers==0.0.30 --index-url https://download.pytorch.org/whl/cu126  # use the correct version of cuda for your system
 ```
 
 ### Checkpoints
@@ -50,6 +48,8 @@ We provide several pre-trained models:
 ### Run demo
 ```bash
 python demo.py --model_name rvc_pretrain  # also try with [rvc | eth3d_pretrain | middlebury_pretrain]
+# If network issue, you can first download the checkpoint, and replace $checkpoint to the path of checkpoint file
+# python demo.py --checkpoint_path $checkpoint
 ```
 
 You can see output disparity visualization
@@ -79,6 +79,8 @@ To train/evaluate _BridgeDepth_, you first need to prepare datasets following [t
 To evaluate on SceneFlow test set, run
 ```bash
 python main.py --num-gpus 4 --eval-only --from-pretrained sf  # use the number of gpus for your need
+# If network issue, you can first download the checkpoint, and replace $checkpoint to the path of checkpoint file
+# python main.py --num-gpus 4 --eval-only --from-pretrained $checkpoint
 # or
 python main.py --num-gpus 4 --eval-only --from-pretrained l_sf
 ```
