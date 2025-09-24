@@ -161,11 +161,11 @@ class StereoDataset(EasyDataset):
         paths_right_pattern: Optional[str] = None,
     ) -> List[Tuple[str, Optional[str]]]:
         
-        left_paths = list(sorted(glob(paths_left_pattern)))
+        left_paths = list(sorted(glob(paths_left_pattern, recursive=True)))
         
         right_paths = List[Union[None, str]]
         if paths_right_pattern:
-            right_paths = list(sorted(glob(paths_right_pattern)))
+            right_paths = list(sorted(glob(paths_right_pattern, recursive=True)))
         else:
             right_paths = list(None for _ in left_paths)
         
@@ -374,7 +374,7 @@ class SintelStereo(StereoDataset):
     
     
 class FallingThings(StereoDataset):
-    def __init__(self, aug_params=None, root='datasets/FallingThings', variant: str = "both"):
+    def __init__(self, aug_params=None, root='datasets/FallingThings/fat', variant: str = "both"):
         super().__init__(aug_params, reader=frame_utils.readDispFallingThings)
         assert os.path.exists(root)
         root = Path(root)
@@ -477,11 +477,11 @@ class InStereo2K(StereoDataset):
         }[variant]
         
         for s in variants:
-            left_img_pattern = str(root / s / "*" / "left.png")
-            right_img_pattern = str(root / s / "*" / "right.png")
+            left_img_pattern = str(root / s / "**" / "left.png")
+            right_img_pattern = str(root / s / "**" / "right.png")
             self.image_list += self._scan_pairs(left_img_pattern, right_img_pattern)
             
-            left_disparity_pattern = str(root / s / "*" / "left_disp.png")
+            left_disparity_pattern = str(root / s / "**" / "left_disp.png")
             self.disparity_list += self._scan_pairs(left_disparity_pattern, None)
             
 
@@ -504,6 +504,26 @@ class Booster(StereoDataset):
                     self.image_list += [ [img1, img2] ]
                     self.disparity_list += [ osp.join(folder, 'disp_00.npy') ]
 
+
+class FSD(StereoDataset):
+    def __init__(self, aug_params=None, root='datasets/FSD'):
+        list_file = os.path.join(root, 'FSD_train.txt')
+        super().__init__(aug_params, sparse=True, reader=frame_utils.readDispFSD)
+        assert os.path.exists(root), f"FSD root not found: {root}"
+        assert os.path.exists(list_file), f"FSD list file not found: {list_file}"
+        # Each line has 3 whitespace-separated paths relative to FSD root
+        lines = read_all_lines(list_file)
+        for line in lines:
+            parts = line.split()
+            if len(parts) < 3:
+                continue
+            left_rel, right_rel, disp_rel = parts[:3]
+            img1 = os.path.join(root, left_rel)
+            img2 = os.path.join(root, right_rel)
+            disp = os.path.join(root, disp_rel)
+            self.image_list += [[img1, img2]]
+            self.disparity_list += [disp]
+ 
 
 def build_train_loader(cfg):
     """ Create the data loader for the corresponding training set """
@@ -558,6 +578,9 @@ def build_train_loader(cfg):
         elif dataset_name == 'in_stereo2k':
             new_dataset = InStereo2K(aug_params, variant='both')
             logger.info(f"{len(new_dataset)} samples from InStereo2K")
+        elif dataset_name == 'fsd':
+            new_dataset = FSD(aug_params)
+            logger.info(f"{len(new_dataset)} samples from FSD")
         else:
             raise ValueError(f"Unrecognized dataset {dataset_name}")
         if mul > 0:

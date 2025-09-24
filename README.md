@@ -78,6 +78,11 @@ We give a demo onnx export script:
 python scripts/make_onnx.py --model_name rvc_pretrain --height 540 --width 960 # adjust input size and model id for your need
 ```
 
+## TensorRT Export
+```bash
+python scripts/make_trt.py  onnx/bridge_rvc_pretrain_opset17.onnx   --fp16 --workspace 4096   --min-shape left=1x3x480x720  --opt-shape left=1x3x540x960  --max-shape left=1x3x720x1280   --min-shape right=1x3x480x720 --opt-shape right=1x3x540x960 --max-shape right=1x3x720x1280
+```
+
 ## Datasets
 To train/evaluate _BridgeDepth_, you first need to prepare datasets following [this guide](bridgedepth/dataloader/README.md).
 

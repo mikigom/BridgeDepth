@@ -377,7 +377,15 @@ class DepthAnything(nn.Module):
     def infer(self, image, use_fp16=True):
         image = image.to(dtype=self.dtype)
 
-        with torch.autocast(device_type=self.device.type, dtype=torch.float16, enabled=use_fp16 and self.dtype != torch.float16):
+        # Disable autocast during ONNX export to avoid control-flow (If) and Cast nodes
+        try:
+            from torch.onnx import is_in_onnx_export  # type: ignore
+            exporting_onnx = bool(is_in_onnx_export())
+        except Exception:
+            exporting_onnx = False
+
+        enable_amp = (use_fp16 and self.dtype != torch.float16 and not exporting_onnx)
+        with torch.autocast(device_type=self.device.type, dtype=torch.float16, enabled=enable_amp):
             x = self.forward(image)
         
         return x.float()
