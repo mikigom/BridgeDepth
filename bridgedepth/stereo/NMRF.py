@@ -229,7 +229,7 @@ class Criterion(nn.Module):
         total_gts = torch.sum(mask)
         # disparity loss for matched predictions
         loss_disp = F.smooth_l1_loss(src_disp[mask], tgt_disp[mask], reduction='sum')
-        losses = {'loss_prop': loss_disp / (total_gts + 1e-6)}
+        losses = {'loss_prop': loss_disp / (total_gts + 1e-4)}  # TODO: changed 1e-6 to 1e-4
     
         return losses
     
@@ -272,16 +272,16 @@ class Criterion(nn.Module):
         label = label / normalizer
 
         mask = label > 0
-        log_prob = -(torch.log(torch.clamp(prob[mask], min=1e-6)) * label[mask]).sum()
+        log_prob = -(torch.log(torch.clamp(prob[mask], min=1e-4)) * label[mask]).sum()  # TODO: changed 1e-6 to 1e-4
         valid_pixs = (valid.float().sum(dim=-1) > 0).sum()
 
-        losses = {'init': log_prob / (valid_pixs + 1e-6)}
+        losses = {'init': log_prob / (valid_pixs + 1e-4)}  # TODO: changed 1e-6 to 1e-4
         assert not torch.any(torch.isnan(losses['init']))
         return losses
     
     def loss_coarse(self, disp_pred, logits_pred, disp_gt):
         mask = (disp_gt > 0) & (disp_gt < self.max_disp)
-        prob = F.softmax(logits_pred, dim=-1)
+        prob = F.softmax(logits_pred.float(), dim=-1).to(logits_pred.dtype)
         disp_gt = disp_gt.unsqueeze(-1).expand_as(disp_pred)
         error = self.loss_fn(disp_pred, disp_gt, reduction='none')
         if torch.any(mask):

@@ -173,6 +173,17 @@ def readDispInStereo2K(file_name):
     return disp, valid
 
 
+def readDispFSD(file_name):
+    a = np.asarray(Image.open(file_name), dtype=np.float32)
+    # Expect RGB channels encoding 24-bit disparity
+    r = a[..., 0]
+    g = a[..., 1]
+    b = a[..., 2]
+    disp = (r * 255.0 * 255.0 + g * 255.0 + b) / 1000.0
+    valid = disp > 0
+    return disp, valid
+
+
 def read_gen(file_name, pil=False):
     ext = splitext(file_name)[-1]
     if ext == '.png' or ext == '.jpeg' or ext == '.ppm' or ext == '.jpg':

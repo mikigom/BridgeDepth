@@ -47,7 +47,7 @@ class BridgeDepth(nn.Module):
         self.stereo_encoder = build_stereo_encoder(cfg)
         
         # Alignment
-        norm_layer = partial(nn.LayerNorm, eps=1e-6)
+        norm_layer = partial(nn.LayerNorm, eps=1e-4)  # TODO: changed 1e-6 to 1e-4
         self.align_0 = Alignment(num_blocks=cfg.NMP.NUM_INFER_LAYERS, embed_dim=dim, window_size=cfg.NMP.WINDOW_SIZE, 
                                  num_heads=cfg.NMP.INFER_N_HEADS, mlp_ratio=cfg.NMP.MLP_RATIO, drop=cfg.NMP.DROPOUT, 
                                  attn_drop=cfg.NMP.ATTN_DROP, drop_path=cfg.NMP.DROP_PATH, norm_layer=norm_layer, 
@@ -190,6 +190,21 @@ class BridgeDepth(nn.Module):
         disp_1 = F.relu(disp_est[None] + disp_update)
         disp_1 = rearrange(disp_1, 'a b h w (hs ws) -> a b (h hs) (w ws)', hs=4).contiguous() * 4
         disp_final = disp_1[-1]
+
+        if not torch.all(torch.isfinite(disp_0[-1])):
+            raise RuntimeError("disp_0[-1] NaN!", disp_0[-1])
+        if not torch.all(torch.isfinite(disp_1[-1])):
+            raise RuntimeError("disp_1[-1] NaN!", disp_1[-1])
+        if not torch.all(torch.isfinite(logit[-1])):
+            raise RuntimeError("logit[-1] NaN!", logit[-1])
+        if not torch.all(torch.isfinite(stereo_outputs['proposal'])):
+            raise RuntimeError("stereo_outputs nan!", stereo_outputs['proposal'])
+        if not torch.all(torch.isfinite(stereo_outputs['prob'])):
+            raise RuntimeError("stereo_prob nan!", stereo_outputs['prob'])
+        if not torch.all(torch.isfinite(mono_embeds)):
+            raise RuntimeError("mono_embeds nan!", mono_embeds)
+        if not torch.all(torch.isfinite(mono_embeds_1)):
+            raise RuntimeError("mono_embeds_1 nan!", mono_embeds_1)
 
         results = {
             "coarse_disp": disp_0[-1] * 8,

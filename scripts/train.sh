@@ -1,0 +1,1 @@
+python main.py --num-gpus 4 --config-file configs/train_mixture_test_all.yaml --from-pretrained ~/.cache/huggingface/hub/models--aeolusguan--BridgeDepth/snapshots/4a96016c4cf01473f90ba80ff5983af7cfb026d3/bridge_rvc_pretrain.pth --checkpoint-dir checkpoints/bridgedepth-ViTL-Mixture-LowLR BRIDGEDEPTH.ENCODER_VIT vitl

@@ -126,7 +126,7 @@ class Attention(nn.Module):
         # multi-head attention
         q, k, v = self.q(q), self.k(k), self.v(x)
         q, k, v = [rearrange(t, 'b n (h d) -> b h n d', h=self.num_heads) for t in [q, k, v]]
-        attn = F.softmax(torch.einsum('bhid, bhjd -> bhij', q, k) * self.scale, dim=-1)
+        attn = F.softmax(torch.einsum('bhid, bhjd -> bhij', q, k).float() * self.scale, dim=-1).to(q.dtype)
         attn = self.attn_drop(attn)
         x = torch.einsum('bhij, bhjd -> bhid', attn, v)
         x = rearrange(x, 'b h n d -> b n (h d)')
@@ -299,7 +299,7 @@ class WindowAttention(nn.Module):
             nW = attn_mask.shape[0]
             attn = attn.view(B_ // nW, nW, self.num_heads, L, L) + attn_mask.unsqueeze(1).unsqueeze(0)
             attn = attn.view(-1, self.num_heads, L, L)
-        attn = F.softmax(attn, dim=-1, dtype=attn.dtype)
+        attn = F.softmax(attn.float(), dim=-1).to(attn.dtype)
         attn = self.attn_drop(attn)
 
         x = attn @ v + torch.einsum('bhij,ijhc->bhic', attn, v_rpe)
@@ -514,7 +514,7 @@ class CSWinAttention(nn.Module):
             q = q * self.scale
             attn = (q @ k.transpose(-2, -1))  # B head N C @ B head C N --> B head N N
             attn = attn + attn_bias
-            attn = nn.functional.softmax(attn, dim=-1, dtype=attn.dtype)
+            attn = nn.functional.softmax(attn.float(), dim=-1).to(attn.dtype)
             attn = self.attn_drop(attn)
             x = attn @ v
         x = rearrange(x, '(b i j) h (hs ws n) d -> b (i hs) (j ws) n (h d)', i=Hp//self.H_sp, j=Wp//self.W_sp, hs=self.H_sp, ws=self.W_sp)
@@ -875,7 +875,7 @@ class PropagationLayer(nn.Module):
         # concat seed embedding with visual context when linearly projecting to
         # query and key since visually similar pixel tends to have coherent disparities
         qk_dim = embed_dim + context_dim
-        norm_layer = partial(nn.LayerNorm, eps=1e-6)
+        norm_layer = partial(nn.LayerNorm, eps=1e-4)  # TODO: changed 1e-6 to 1e-4
         self.nmp = CSWinNMP(embed_dim, qk_dim, num_heads=n_heads, split_size=split_size, mlp_ratio=mlp_ratio,
                             attn_drop=attn_drop, proj_drop=proj_drop, drop_path=drop_path, dropout=dropout,
                             act_layer=act_layer, norm_layer=norm_layer)
@@ -902,7 +902,7 @@ class InferenceLayer(nn.Module):
         qk_dim = dim + 31
         self.window_size = window_size
         self.shift_size = shift_size
-        norm_layer = partial(nn.LayerNorm, eps=1e-6)
+        norm_layer = partial(nn.LayerNorm, eps=1e-4)  # TODO: changed 1e-6 to 1e-4
         # attend to proposals of the same pixel to suppress non-accurate proposals
         self.self_nmp = Attention(dim, qk_dim, n_heads, attn_drop=attn_drop, proj_drop=proj_drop,
                                   drop_path=drop_path, dropout=dropout)
@@ -932,7 +932,7 @@ class RefinementLayer(nn.Module):
         qk_dim = dim + 31
         self.window_size = window_size
         self.shift_size = shift_size
-        norm_layer = partial(nn.LayerNorm, eps=1e-6)
+        norm_layer = partial(nn.LayerNorm, eps=1e-4)  # TODO: changed 1e-6 to 1e-4
         self.nmp = SwinNMP(dim, qk_dim, num_heads=n_heads, window_size=window_size,
                            shift_size=shift_size, mlp_ratio=mlp_ratio, attn_drop=attn_drop,
                            drop_path=drop_path, drop=dropout, act_layer=act_layer, norm_layer=norm_layer)
