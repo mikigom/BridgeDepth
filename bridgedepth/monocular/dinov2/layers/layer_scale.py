@@ -17,7 +17,7 @@ class LayerScale(nn.Module):
     def __init__(
         self,
         dim: int,
-        init_values: Union[float, Tensor] = 1e-5,
+        init_values: Union[float, Tensor] = 1e-4,
         inplace: bool = False,
     ) -> None:
         super().__init__()

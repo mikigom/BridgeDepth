@@ -116,7 +116,7 @@ class SwinDPT(nn.Module):
         )
         self.features = model.features
 
-        norm_layer = partial(nn.LayerNorm, eps=1e-6)
+        norm_layer = partial(nn.LayerNorm, eps=1e-4)  # TODO: changed 1e-6 to 1e-4
         self.norms = nn.ModuleList(
             [norm_layer(96), norm_layer(192), norm_layer(384)]
         )
@@ -203,7 +203,7 @@ class ConvNextDPT(nn.Module):
         )
         self.features = model.features
 
-        norm_layer = partial(nn.LayerNorm, eps=1e-6)
+        norm_layer = partial(nn.LayerNorm, eps=1e-4)  # TODO: changed 1e-6 to 1e-4
         self.norms = nn.ModuleList(
             [norm_layer(96), norm_layer(192), norm_layer(384)]
         )

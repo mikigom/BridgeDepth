@@ -17,11 +17,14 @@ def compute_scale_and_shift(input, mask):
     Returns:
         bias, scale: [B]
     """
-    nan_input = invalid_to_nans(input, mask).flatten(1)
+    orig_dtype = input.dtype
+    nan_input = invalid_to_nans(input, mask).to(torch.float32).flatten(1)
     bias = torch.nanquantile(nan_input, 0.5, dim=1)
-    scale = torch.abs(nan_input - bias[:, None]).nanmean(dim=1) + 1e-6
+    scale = torch.abs(nan_input - bias[:, None]).nanmean(dim=1) + 1e-4  # TODO: changed 1e-6 to 1e-4
     bias[bias.isnan()] = 0
     scale[scale.isnan()] = 1
+    bias = bias.to(dtype=orig_dtype)
+    scale = scale.to(dtype=orig_dtype)
     return bias, scale
 
 def normalize_disparity(disp, mask):
@@ -48,7 +51,7 @@ def sequence_affine_invariant_loss(predictions, target, mask, loss_gamma=0.9):
         i_weight = adjust_loss_gamma**(n_predictions - i - 1)
         i_pred = normalize_disparity(predictions[i], mask)
         i_loss = torch.nan_to_num((i_pred - target).abs(), posinf=0) * mask
-        i_loss = i_loss.flatten(1).sum(dim=1) / (mask.flatten(1).sum(dim=1) + 1e-6)
+        i_loss = i_loss.flatten(1).sum(dim=1) / (mask.flatten(1).sum(dim=1) + 1e-4)  # TODO: changed 1e-6 to 1e-4
         loss += i_weight * i_loss.mean()
     
     assert not torch.isnan(loss)

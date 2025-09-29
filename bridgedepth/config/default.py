@@ -120,6 +120,11 @@ _CN.SOLVER.IMS_PER_BATCH = 8
 # Gradient clipping
 _CN.SOLVER.GRAD_CLIP = 1.0
 
+# Whether to use AMP autocast float16 training
+_CN.SOLVER.AMP = False
+# AMP precision dtype: one of {"bf16", "fp16"}. When using bf16, gradient scaler is disabled.
+_CN.SOLVER.AMP_DTYPE = "bf16"
+
 _CN.SOLVER.LOSS_WEIGHTS = [1.0, 1.0, 1.0, 1.4, 1.4, 1.4, 1.4, 1.6, 2.0, 2.0]
 
 # resume from pretrain model for finetuning or resuming from terminated training

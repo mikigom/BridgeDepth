@@ -92,7 +92,7 @@ class DinoVisionTransformer(nn.Module):
             interpolate_offset: (float) work-around offset to apply when interpolating positional embeddings
         """
         super().__init__()
-        norm_layer = partial(nn.LayerNorm, eps=1e-6)
+        norm_layer = partial(nn.LayerNorm, eps=1e-4)  # TODO: changed 1e-6 to 1e-4
 
         self.num_features = self.embed_dim = embed_dim  # num_features for consistency with other models
         self.num_tokens = 1
@@ -171,9 +171,9 @@ class DinoVisionTransformer(nn.Module):
 
     def init_weights(self):
         trunc_normal_(self.pos_embed, std=0.02)
-        nn.init.normal_(self.cls_token, std=1e-6)
+        nn.init.normal_(self.cls_token, std=1e-4)  # TODO: changed 1e-6 to 1e-4
         if self.register_tokens is not None:
-            nn.init.normal_(self.register_tokens, std=1e-6)
+            nn.init.normal_(self.register_tokens, std=1e-4)  # TODO: changed 1e-6 to 1e-4
         named_apply(init_weights_vit_timm, self)
     
     def interpolate_pos_encoding(self, x, w, h):

@@ -149,7 +149,7 @@ class CrossAttention(nn.Module):
         qr = torch.einsum('bhic,ijhc->bhij', q, k_rpe)
         kr = torch.einsum('bhjc,ijhc->bhij', k, q_rpe)
         attn = qk + qr + kr
-        attn = F.softmax(attn, dim=-1, dtype=attn.dtype)
+        attn = F.softmax(attn.float(), dim=-1).to(attn.dtype)
         attn = self.attn_drop(attn)
 
         x = attn @ v + torch.einsum('bhij,ijhc->bhic', attn, v_rpe)

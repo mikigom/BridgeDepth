@@ -4,7 +4,7 @@
 
 set -e
 
-cd /fdisk1/Codes/OmniDepth
+cd /fdisk1/Codes/BridgeDepth
 
 # Create the data directory if it doesn't exist
 mkdir -p datasets

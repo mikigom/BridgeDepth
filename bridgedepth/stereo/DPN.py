@@ -90,7 +90,8 @@ class DPN(nn.Module):
         # ---- step 1: extract disparity modals as label seeds ---- #
         cost_volume = cost_volume.permute(0, 3, 4, 1, 2).flatten(0, 2)  # [BHW,G,D]
         cost = self.mlp(cost_volume).squeeze(1)  # [BHW,D]
-        prob = F.softmax(cost, dim=-1)
+        # Compute softmax in float32 for numerical stability, then cast back
+        prob = F.softmax(cost.float(), dim=-1).to(cost.dtype)
         out = F.max_pool1d(prob.unsqueeze(1), kernel_size=3, stride=1, padding=1).squeeze(1)
         non_local_max = (prob != out) & (prob > self.eps)
 

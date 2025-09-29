@@ -17,6 +17,19 @@ from bridgedepth.utils.logger import setup_logger
 from bridgedepth.utils.launch import launch
 from bridgedepth.utils.eval_disp import eval_disp
 
+def cast_to_fp32(data):
+    """Recursively traverses a data structure and casts float tensors to FP32."""
+    if isinstance(data, torch.Tensor):
+        if torch.any(torch.isnan(data)):
+            raise RuntimeError("nan found in model output!")
+        return data.float() if torch.is_floating_point(data) else data
+    elif isinstance(data, list):
+        return [cast_to_fp32(item) for item in data]
+    elif isinstance(data, dict):
+        return {key: cast_to_fp32(value) for key, value in data.items()}
+    else:
+        # Return data as is if it's not a tensor, list, or dict
+        return data
 
 def get_args_parser():
     parser = argparse.ArgumentParser(
@@ -174,7 +187,10 @@ def main(args):
     if args.eval_only:
         model = BridgeDepth.from_pretrained(args.from_pretrained)
     else:
-        model = BridgeDepth(cfg, mono_pretrained=True)
+        if args.from_pretrained:
+            model = BridgeDepth.from_pretrained(args.from_pretrained)
+        else:
+            model = BridgeDepth(cfg, mono_pretrained=True)
     model = model.to(torch.device("cuda"))
 
     if comm.get_world_size() > 1:
@@ -202,6 +218,18 @@ def main(args):
     optimizer = build_optimizer(model_without_ddp, cfg)
     criterion = build_criterion(cfg)
 
+    # Select AMP dtype with bf16 preferred when supported
+    amp_enabled = cfg.SOLVER.AMP
+    amp_dtype_cfg = getattr(cfg.SOLVER, 'AMP_DTYPE', 'bf16').lower()
+    bf16_requested = (amp_dtype_cfg == 'bf16')
+    bf16_supported = torch.cuda.is_available() and hasattr(torch.cuda, 'is_bf16_supported') and torch.cuda.is_bf16_supported()
+    amp_dtype = torch.bfloat16 if (bf16_requested and bf16_supported) else torch.float16
+    if amp_enabled and bf16_requested and not bf16_supported:
+        logger.warning("BF16 requested for AMP but not supported on this GPU/PyTorch; falling back to FP16.")
+
+    # Use GradScaler only for FP16
+    scaler = torch.cuda.amp.GradScaler(enabled=(amp_enabled and amp_dtype == torch.float16))
+
     # resume checkpoints
     start_epoch = 0
     start_step = 0
@@ -220,6 +248,8 @@ def main(args):
         if 'optimizer' in checkpoint and 'step' in checkpoint and 'epoch' in checkpoint and not no_resume_optimizer:
             logger.info('Load optimizer')
             optimizer.load_state_dict(checkpoint['optimizer'])
+            if 'scaler' in checkpoint:
+                scaler.load_state_dict(checkpoint['scaler'])
             start_epoch = checkpoint['epoch']
             start_step = checkpoint['step']
 
@@ -258,7 +288,10 @@ def main(args):
 
         header = 'Epoch: [{}]'.format(epoch)
         for sample in metric_logger.log_every(train_loader, print_freq, header, logger=logger):
-            result_dict = model(sample)
+            with torch.autocast(device_type='cuda', dtype=amp_dtype, enabled=amp_enabled):
+                result_dict = model(sample)
+            # with torch.autocast(device_type='cuda', enabled=False):
+            result_dict = cast_to_fp32(result_dict)
             loss_dict = criterion(result_dict, sample, log=True)
             weight_dict = criterion.weight_dict
             losses = sum(loss_dict[k] * weight_dict[k] for k in loss_dict.keys() if k in weight_dict)
@@ -267,12 +300,14 @@ def main(args):
             for param in model_without_ddp.parameters():
                 param.grad = None
 
-            losses.backward()
+            scaler.scale(losses).backward()
 
             # Gradient clipping
+            scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.SOLVER.GRAD_CLIP)
 
-            optimizer.step()
+            scaler.step(optimizer)
+            scaler.update()
 
             # for training status print
             metric_logger.update(lr=lr_scheduler.get_last_lr()[0])
@@ -302,6 +337,7 @@ def main(args):
                         'model': model_without_ddp.state_dict(),
                         'model_config': export_model_config(cfg),
                         'optimizer': optimizer.state_dict(),
+                        'scaler': scaler.state_dict(),
                         'step': total_steps,
                         'epoch': epoch,
                     }, checkpoint_path)

@@ -50,7 +50,7 @@ class Attention(nn.Module):
         else:
             q = q * self.scale
             attn = q @ k.transpose(-2, -1)
-            attn = attn.softmax(dim=-1)
+            attn = F.softmax(attn.float(), dim=-1).to(attn.dtype)
             attn = self.attn_drop(attn)
             x = attn @ v
         
